@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<sdf version="1.9">
+  <world name="wamv_ardupilot_waves">
+    <plugin filename="gz-sim-physics-system"
+            name="gz::sim::systems::Physics"/>
+    <plugin filename="gz-sim-sensors-system"
+            name="gz::sim::systems::Sensors">
+      <render_engine>ogre2</render_engine>
+      <background_color>0.62 0.72 0.84</background_color>
+    </plugin>
+    <plugin filename="gz-sim-scene-broadcaster-system"
+            name="gz::sim::systems::SceneBroadcaster"/>
+    <plugin filename="gz-sim-user-commands-system"
+            name="gz::sim::systems::UserCommands"/>
+    <plugin filename="gz-sim-imu-system"
+            name="gz::sim::systems::Imu"/>
+
+    <scene>
+      <ambient>0.32 0.36 0.42</ambient>
+      <background>0.62 0.72 0.84</background>
+      <sky/>
+    </scene>
+
+    <light type="directional" name="sun">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>1.0 0.95 0.86 1</diffuse>
+      <specular>0.95 0.95 0.9 1</specular>
+      <direction>-0.35 0.25 -0.9</direction>
+    </light>
+
+    <light type="directional" name="sky_fill">
+      <cast_shadows>false</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.22 0.28 0.34 1</diffuse>
+      <specular>0.08 0.1 0.12 1</specular>
+      <direction>0.55 -0.35 -0.75</direction>
+    </light>
+
+    <spherical_coordinates>
+      <surface_model>EARTH_WGS84</surface_model>
+      <world_frame_orientation>ENU</world_frame_orientation>
+      <latitude_deg>51.566151</latitude_deg>
+      <longitude_deg>-4.034345</longitude_deg>
+      <elevation>0</elevation>
+      <heading_deg>0</heading_deg>
+    </spherical_coordinates>
+
+    <include>
+      <pose>0 0 0 0 0 0</pose>
+      <uri>model://waves_gentle</uri>
+    </include>
+
+    <include>
+      <name>wamv</name>
+      <pose>0 0 0 0 0 0</pose>
+      <uri>model://wamv/model_waves.sdf</uri>
+    </include>
+  </world>
+</sdf>
