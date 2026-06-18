@@ -72,8 +72,54 @@ missing, frozen, or looking like a shader texture sliding over the water instead
 of a live wave mesh. Use a Gazebo Sim 8 build that includes
 [`gazebosim/gz-sim#3543`](https://github.com/gazebosim/gz-sim/pull/3543), the
 `gz-sim8` backport of
-[`gazebosim/gz-sim#3459`](https://github.com/gazebosim/gz-sim/pull/3459), then
-rebuild `asv_wave_sim` against that Gazebo install.
+[`gazebosim/gz-sim#3459`](https://github.com/gazebosim/gz-sim/pull/3459).
+
+For the pixi setup used during validation, the working fix was:
+
+1. Patch or update `gz-sim8` so `EventManager` hashes and compares event types
+   by stable `type_info::name()` strings, matching the upstream fix.
+2. Rebuild and install all of `gz-sim8` into the active pixi environment. A
+   header-only update or single-library swap can still leave stale template
+   instantiations in Gazebo plugins.
+3. When building `gz-sim8_8.9.0` against newer pixi / conda Gazebo
+   dependencies, use `-DSKIP_PYBIND11=ON` if the Python bindings fail on a
+   protobuf / pybind mismatch. The validation build also needed small
+   `std::string(...)` compatibility casts in Gazebo's log and triggered
+   publisher systems for newer `gz-transport` headers.
+4. Rebuild `asv_wave_sim/gz-waves` against that same pixi Gazebo install. Check
+   that `libgz-waves1-rendering-ogre2` links to the pixi `libOgreNext*.2.3.x`
+   libraries, not a Homebrew Ogre install.
+5. Run Gazebo with the ASV wave plugin install directory on the plugin path.
+
+Example environment checks:
+
+```bash
+pixi shell
+
+export PIXI_GZ_PREFIX=${PIXI_GZ_PREFIX:-"$CONDA_PREFIX"}
+export ASV_WAVE_SIM_SRC=${ASV_WAVE_SIM_SRC:-"$HOME/gz_ws/src/asv_wave_sim"}
+export ASV_WAVE_SIM_BUILD=${ASV_WAVE_SIM_BUILD:-"$HOME/gz_ws/build/gz-waves"}
+export ASV_WAVE_SIM_INSTALL=${ASV_WAVE_SIM_INSTALL:-"$HOME/gz_ws/install"}
+export GZ_VERSION=harmonic
+
+cmake -S "$ASV_WAVE_SIM_SRC/gz-waves" -B "$ASV_WAVE_SIM_BUILD" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_PREFIX_PATH="$PIXI_GZ_PREFIX" \
+  -DCMAKE_INSTALL_PREFIX="$ASV_WAVE_SIM_INSTALL" \
+  -DBUILD_TESTING=OFF
+cmake --build "$ASV_WAVE_SIM_BUILD" --target install -j"$(sysctl -n hw.ncpu)"
+
+export GZ_WAVES_PLUGIN_PATH="$ASV_WAVE_SIM_INSTALL/lib"
+export GZ_SIM_SYSTEM_PLUGIN_PATH="$GZ_WAVES_PLUGIN_PATH:${GZ_SIM_SYSTEM_PLUGIN_PATH:-}"
+export DYLD_LIBRARY_PATH="$GZ_WAVES_PLUGIN_PATH:$PIXI_GZ_PREFIX/lib:${DYLD_LIBRARY_PATH:-}"
+
+otool -L "$GZ_WAVES_PLUGIN_PATH/libgz-waves1-rendering-ogre2.1.0.0.dylib" | grep Ogre
+```
+
+That `otool` check should show Ogre libraries from the pixi Gazebo environment
+or `@rpath` entries resolved by it. If it shows Homebrew's Ogre path while
+Gazebo is running from pixi, rebuild `asv_wave_sim` before debugging the WAM-V
+model.
 
 If the water renders but looks too flat or dull, also confirm that this repo's
 current `waves_gentle` model is being loaded; the validation runs use the
@@ -117,12 +163,15 @@ For the wave world, also build `asv_wave_sim`:
 mkdir -p "$HOME/gz_ws/src"
 cd "$HOME/gz_ws/src"
 git clone https://github.com/srmainwaring/asv_wave_sim.git
-cd "$HOME/gz_ws"
-colcon build --symlink-install --merge-install \
-  --cmake-args -DCMAKE_BUILD_TYPE=RelWithDebInfo -DBUILD_TESTING=ON -DCMAKE_CXX_STANDARD=17
 
-# Use setup.zsh instead if that matches your shell.
-source "$HOME/gz_ws/install/setup.bash"
+export PIXI_GZ_PREFIX=${PIXI_GZ_PREFIX:-"$CONDA_PREFIX"}
+cmake -S "$HOME/gz_ws/src/asv_wave_sim/gz-waves" -B "$HOME/gz_ws/build/gz-waves" \
+  -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+  -DCMAKE_PREFIX_PATH="$PIXI_GZ_PREFIX" \
+  -DCMAKE_INSTALL_PREFIX="$HOME/gz_ws/install" \
+  -DBUILD_TESTING=OFF
+cmake --build "$HOME/gz_ws/build/gz-waves" --target install -j"$(sysctl -n hw.ncpu)"
+
 export GZ_WAVES_PLUGIN_PATH="$HOME/gz_ws/install/lib"
 ```
 
